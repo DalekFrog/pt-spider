@@ -50,9 +50,9 @@ for row in ttg_fulltable.find_all("tr",class_=["hover_hr  sticky","hover_hr"],re
     #else:
     #    title = ''
     #title = torrent_fix.text[0]
-    m = row.find_all("td",{"align":"center"})
-    print m[3].text
+    size = row.find_all("td",{"align":"center"})[3].text
     print id
+    print size
     #print title
 #    torrent_fix = row.find("td",{"class":"t_name"}).find("tr").find_all("td")[1]
 #    torrent_misc = torrent_fix.h3.a

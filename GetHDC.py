@@ -1,9 +1,11 @@
 #!/usr/bin/env python 
+#-*- coding: UTF-8 -*- 
 
 from bs4 import BeautifulSoup
 import re
 import requests
-
+import time
+import sqlite3
 
 headers = {
     'Accept-Encoding':'gzip, deflate, sdch, br',
@@ -23,28 +25,40 @@ f.close()
 
 s = requests.Session()
 s.headers.update(headers)
-#print s.headers
 
+conn = sqlite3.connect('test.db')
+conn.text_factory = str
 
 def showtop():
-    r = requests.get(t_url)
+    site = 'HDC'
+    r = s.get(t_url)
     soup =  BeautifulSoup(r.content, "lxml")
-    #print r.content
     fulltable = soup.find("table",{"class" : "torrent_list"})
-    hdc_torrents = []
+    #hdc_torrents = []
+    cur = conn.cursor()
     for row in fulltable.find_all("tr",class_=["stickz_bg","sticky_bg"],recursive=False):
         torrent_fix = row.find("td",{"class":"t_name"}).find("tr").find_all("td")[1]
         torrent_misc = torrent_fix.h3.a
         title = torrent_misc['title']
-        id = re.search(r'\d+(?=&)',torrent_misc['href']).group()
+        site_id = re.search(r'\d+(?=&)',torrent_misc['href']).group()
+        up_time = row.find("td",{"class":"t_time"}).span['title']
+        upltime = int(time.mktime(time.strptime(up_time,"%Y-%m-%d %H:%M:%S")))
         try:
             name = torrent_fix.h4.text
         except:
             name = ''
         size = row.find("td",{"class":"t_size"}).text
-        torrent = ['HDC',title,name,id,size]
-        hdc_torrents.extend([torrent])
-    return hdc_torrents
+        #torrent = ['HDC',title,name,site_id,size,upltime]
+        t_link = "https://hdchina.club/details.php?id=" + site_id + "&hit=1"
+        d_link = "https://hdchina.club/download.php?id="+ site_id + "&passkey=" + "my-passkey"
+
+        cur.execute("INSERT INTO PTTOP (SITE,TITLE,NAME,SITE_ID,SIZE,T_LINK,D_LINK,UPLTIME ) VALUES (?,?,?,?,?,?,?,?) " ,  (site,title,name,site_id,size,t_link,d_link,upltime))
+        conn.commit()
+        #print(torrent)
+        #hdc_torrents.extend([torrent])
+    #return hdc_torrents
 
 if __name__ == '__main__':
-    print showtop()
+    #print(showtop())
+    showtop()
+    conn.close()

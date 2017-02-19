@@ -1,9 +1,11 @@
 #!/usr/bin/env python 
+#-*- coding: UTF-8 -*- 
 
 from bs4 import BeautifulSoup
 import re
 import requests
-
+import time
+import sqlite3
 
 headers = {
     'Accept-Encoding':'gzip, deflate, sdch, br',
@@ -24,25 +26,32 @@ f.close()
 s = requests.Session()
 s.headers.update(headers)
 
+conn = sqlite3.connect('test.db')
+conn.text_factory = str
 
 def showtop():
-    r = requests.get(t_url)
+    site = 'TTG'
+    r = s.get(t_url)
     soup =  BeautifulSoup(r.content, "lxml")
     fulltable =  soup.find("table",{"id" : "torrent_table"})
-    ttg_torrents = []
+    cur = conn.cursor()
     for row in fulltable.find_all("tr",class_=["hover_hr  sticky","hover_hr"],recursive=False):
-        id = row["id"]
+        site_id = row["id"]
+        up_time = row.find_all("td",{"align":"center"})[1].text
+        upltime = int(time.mktime(time.strptime(up_time,"%Y-%m-%d%H:%M:%S")))
         size = row.find_all("td",{"align":"center"})[3].text
-        torrent_fix = str(row.find("td",{"align":"left"}).find("div").a.b).split('<br/>')   #.find("br").next_sibling
-        title = re.sub(r'</?\w+[^>]*>','',torrent_fix[0])
+        torrent_fix = str(row.find("td",{"align":"left"}).find("div").a.b)
+        title = re.split('<|>',torrent_fix)[2] #原盘DIY制作者@字符使用了邮件保护js，直接舍弃处理
         try:
-            name = re.sub(r'</?\w+[^>]*>','',torrent_fix[1]).strip()
+            name = re.sub(r'</?\w+[^>]*>','',torrent_fix.split('<br/>')[1]).strip()
         except:
             name = ''
-    
-        torrent = ['TTG',title,name,id,size]
-        ttg_torrents.extend([torrent])
-    return ttg_torrents
+
+        t_link = "https://totheglory.im/t/" + site_id + "/"
+        d_link = "https://totheglory.im/dl/"+ site_id + "/passkey"
+        cur.execute("INSERT INTO PTTOP (SITE,TITLE,NAME,SITE_ID,SIZE,T_LINK,D_LINK,UPLTIME ) VALUES (?,?,?,?,?,?,?,?) " ,  (site,title,name,site_id,size,t_link,d_link,upltime))
+        conn.commit()
 
 if __name__ == '__main__':
-    print showtop()
+    showtop()
+    conn.close()
